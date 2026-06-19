@@ -10,6 +10,9 @@
     </header>
 
     <section class="content-card">
+      <p v-if="isLoading" class="state-text">Загрузка...</p>
+      <p v-if="error" class="error-text">{{ error }}</p>
+
       <table>
         <thead>
           <tr>
@@ -79,14 +82,19 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { apiDelete, apiGet, apiPost, apiPut } from '../api'
 
-const farms = ref([
+const demoFarms = [
   { id: 1, name: 'Ферма 1', region: 'Регион 1', description: 'Описание фермы 1', locationsCount: 2 },
   { id: 2, name: 'Ферма 2', region: 'Регион 2', description: 'Описание фермы 2', locationsCount: 1 },
   { id: 3, name: 'Ферма 3', region: 'Регион 1', description: 'Описание фермы 3', locationsCount: 2 }
-])
+]
+
+const farms = ref(demoFarms)
+const isLoading = ref(false)
+const error = ref('')
 
 const isModalOpen = ref(false)
 const editingFarmId = ref(null)
@@ -121,31 +129,68 @@ const closeModal = () => {
   isModalOpen.value = false
 }
 
-const saveFarm = () => {
-  if (editingFarmId.value) {
-    const farm = farms.value.find((item) => item.id === editingFarmId.value)
+const mapFarm = (farm) => ({
+  ...farm,
+  description: farm.description || '',
+  locationsCount: farm.locations?.length || 0
+})
 
-    if (farm) {
-      farm.name = form.name
-      farm.region = form.region
-      farm.description = form.description
+const loadFarms = async () => {
+  try {
+    isLoading.value = true
+    error.value = ''
+    const data = await apiGet('/farms')
+    farms.value = data.map(mapFarm)
+  } catch (requestError) {
+    error.value = requestError.message || 'Не удалось загрузить фермы'
+    farms.value = demoFarms
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const saveFarm = async () => {
+  const payload = {
+    name: form.name,
+    region: form.region,
+    description: form.description
+  }
+
+  if (editingFarmId.value) {
+    try {
+      const updatedFarm = await apiPut(`/farms/${editingFarmId.value}`, payload)
+      const farmIndex = farms.value.findIndex((item) => item.id === editingFarmId.value)
+
+      if (farmIndex !== -1) {
+        farms.value[farmIndex] = mapFarm(updatedFarm)
+      }
+    } catch (requestError) {
+      error.value = requestError.message || 'Не удалось сохранить ферму'
+      return
     }
   } else {
-    farms.value.push({
-      id: Date.now(),
-      name: form.name,
-      region: form.region,
-      description: form.description,
-      locationsCount: 0
-    })
+    try {
+      const createdFarm = await apiPost('/farms', payload)
+      farms.value.push(mapFarm(createdFarm))
+    } catch (requestError) {
+      error.value = requestError.message || 'Не удалось добавить ферму'
+      return
+    }
   }
 
   closeModal()
 }
 
-const deleteFarm = (id) => {
-  farms.value = farms.value.filter((farm) => farm.id !== id)
+const deleteFarm = async (id) => {
+  try {
+    await apiDelete(`/farms/${id}`)
+    farms.value = farms.value.filter((farm) => farm.id !== id)
+  } catch (requestError) {
+    error.value = requestError.message || 'Не удалось удалить ферму'
+  }
 }
+
+onMounted(loadFarms)
 </script>
 
 <style scoped>
@@ -209,6 +254,20 @@ const deleteFarm = (id) => {
   padding: 26px;
   box-shadow: 0 12px 30px rgba(20, 44, 66, 0.07);
   overflow-x: auto;
+}
+
+.state-text,
+.error-text {
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
+.state-text {
+  color: #6b7c8f;
+}
+
+.error-text {
+  color: #d93025;
 }
 
 table {

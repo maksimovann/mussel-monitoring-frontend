@@ -46,13 +46,21 @@ cd mussel-monitoring-frontend
 npm install
 ```
 
-4. Запустить проект:
+4. Если backend запущен отдельно на `http://localhost:3000`, дополнительных настроек для локального запуска не требуется: Vite проксирует `/api` на backend.
+
+При необходимости можно создать `.env.local` и указать другой адрес API:
+
+```bash
+VITE_API_URL=http://localhost:3000/api
+```
+
+5. Запустить проект:
 
 ```bash
 npm run dev
 ```
 
-5. Открыть в браузере адрес, который появится в терминале. Обычно:
+6. Открыть в браузере адрес, который появится в терминале. Обычно:
 
 ```text
 http://localhost:5173/
@@ -92,6 +100,16 @@ npm run preview
 
 ## Примечание
 
-В проекте реализована только frontend-часть. Backend и база данных не подключены.
+В проекте реализована frontend-часть. Frontend подготовлен к работе с backend API:
 
-Данные на страницах являются временными демонстрационными данными. После подключения backend их можно заменить на API-запросы к серверу.
+- `POST /api/auth/login`
+- `GET /api/farms`
+- `POST /api/farms`
+- `PUT /api/farms/:id`
+- `DELETE /api/farms/:id`
+- `GET /api/lines`
+- `GET /api/batches`
+- `POST /api/batches`
+- `POST /api/observations`
+
+Если backend не запущен или пользователь не авторизован, часть страниц может показывать временные демонстрационные данные.

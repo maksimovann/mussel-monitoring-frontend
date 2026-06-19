@@ -19,7 +19,9 @@
 
         <p v-if="error" class="error-text">{{ error }}</p>
 
-        <button type="submit">Войти</button>
+        <button type="submit" :disabled="isLoading">
+          {{ isLoading ? 'Вход...' : 'Войти' }}
+        </button>
       </form>
     </div>
   </div>
@@ -28,13 +30,15 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { apiPost, tokenStorage } from '../api'
 
 const router = useRouter()
-const login = ref('demo')
-const password = ref('demo')
+const login = ref('')
+const password = ref('')
 const error = ref('')
+const isLoading = ref(false)
 
-const handleLogin = () => {
+const handleLogin = async () => {
   error.value = ''
 
   if (!login.value || !password.value) {
@@ -42,8 +46,20 @@ const handleLogin = () => {
     return
   }
 
-  // Сейчас это frontend-заглушка. После подключения backend здесь будет POST /api/auth/login.
-  router.push('/dashboard')
+  try {
+    isLoading.value = true
+    const data = await apiPost('/auth/login', {
+      login: login.value,
+      password: password.value
+    })
+
+    tokenStorage.setTokens(data)
+    router.push('/dashboard')
+  } catch (requestError) {
+    error.value = requestError.message || 'Не удалось войти'
+  } finally {
+    isLoading.value = false
+  }
 }
 </script>
 
@@ -127,6 +143,11 @@ button {
 
 button:hover {
   background: #238ac3;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .error-text {

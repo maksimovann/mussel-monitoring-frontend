@@ -10,6 +10,9 @@
     </header>
 
     <section class="content-card">
+      <p v-if="isLoading" class="state-text">Загрузка...</p>
+      <p v-if="error" class="error-text">{{ error }}</p>
+
       <table>
         <thead>
           <tr>
@@ -91,10 +94,11 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { apiGet, apiPost } from '../api'
 
-const batches = ref([
+const demoBatches = [
   {
     id: 1,
     number: 'Партия 1',
@@ -122,13 +126,18 @@ const batches = ref([
     status: 'completed',
     statusLabel: 'Завершена'
   }
-])
+]
 
-const lines = [
+const demoLines = [
   { id: 1, name: 'Линия 1' },
   { id: 2, name: 'Линия 2' },
   { id: 3, name: 'Линия 3' }
 ]
+
+const batches = ref(demoBatches)
+const lines = ref(demoLines)
+const isLoading = ref(false)
+const error = ref('')
 
 const isModalOpen = ref(false)
 
@@ -162,6 +171,14 @@ const formatDate = (date) => {
   return `${day}.${month}.${year}`
 }
 
+const formatBackendDate = (date) => {
+  if (!date) {
+    return ''
+  }
+
+  return new Date(date).toLocaleDateString('ru-RU')
+}
+
 const statusLabels = {
   active: 'Активна',
   completed: 'Завершена',
@@ -169,19 +186,67 @@ const statusLabels = {
   archived: 'Архивная'
 }
 
-const saveBatch = () => {
-  batches.value.push({
-    id: Date.now(),
-    number: form.number,
-    line: form.line,
-    dateAdded: formatDate(form.dateAdded),
-    initialCount: form.initialCount,
-    status: form.status,
-    statusLabel: statusLabels[form.status]
-  })
+const mapBatch = (batch) => {
+  const line = lines.value.find((item) => item.id === batch.line_id)
+
+  return {
+    id: batch.id,
+    number: batch.batch_number,
+    line: line?.name || `Линия ${batch.line_id}`,
+    dateAdded: formatBackendDate(batch.seed_date),
+    initialCount: batch.initial_count,
+    status: batch.status,
+    statusLabel: statusLabels[batch.status] || batch.status
+  }
+}
+
+const loadData = async () => {
+  try {
+    isLoading.value = true
+    error.value = ''
+    const [loadedLines, loadedBatches] = await Promise.all([
+      apiGet('/lines'),
+      apiGet('/batches')
+    ])
+
+    lines.value = loadedLines.length ? loadedLines : demoLines
+    batches.value = loadedBatches.map(mapBatch)
+  } catch (requestError) {
+    error.value = requestError.message || 'Не удалось загрузить партии'
+    lines.value = demoLines
+    batches.value = demoBatches
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const saveBatch = async () => {
+  const selectedLine = lines.value.find((line) => line.name === form.line)
+
+  if (!selectedLine) {
+    error.value = 'Выберите линию'
+    return
+  }
+
+  try {
+    const createdBatch = await apiPost('/batches', {
+      line_id: selectedLine.id,
+      batch_number: form.number,
+      seed_date: form.dateAdded,
+      initial_count: Number(form.initialCount),
+      status: form.status
+    })
+
+    batches.value.push(mapBatch(createdBatch))
+  } catch (requestError) {
+    error.value = requestError.message || 'Не удалось добавить партию'
+    return
+  }
 
   closeModal()
 }
+
+onMounted(loadData)
 </script>
 
 <style scoped>
@@ -325,6 +390,20 @@ const saveBatch = () => {
   padding: 26px;
   box-shadow: 0 12px 30px rgba(20, 44, 66, 0.07);
   overflow-x: auto;
+}
+
+.state-text,
+.error-text {
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
+.state-text {
+  color: #6b7c8f;
+}
+
+.error-text {
+  color: #d93025;
 }
 
 table {
