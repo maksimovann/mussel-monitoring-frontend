@@ -8,14 +8,6 @@
 https://maksimovann.github.io/mussel-monitoring-frontend/
 ```
 
-Если страница еще не открывается, нужно включить GitHub Pages в настройках репозитория:
-
-```text
-Settings -> Pages -> Source -> GitHub Actions
-```
-
-После этого GitHub Actions соберет и опубликует проект.
-
 ## Стек
 
 - Vue 3
