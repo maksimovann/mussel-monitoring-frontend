@@ -23,11 +23,6 @@ https://github.com/Asukaru556/MuselFarm-Backend
 docker-compose up --build
 ```
 
-API доступно по адресу:
-
-```text
-http://localhost:3000/api
-```
 
 ## Тестовый вход
 
