@@ -38,6 +38,9 @@
               </span>
             </td>
           </tr>
+          <tr v-if="!isLoading && !batches.length">
+            <td colspan="4" class="empty-cell">Партии пока не добавлены</td>
+          </tr>
         </tbody>
       </table>
     </section>
@@ -56,9 +59,9 @@
 
         <div class="form-group">
           <label for="batch-line">Линия</label>
-          <select id="batch-line" v-model="form.line" required>
+          <select id="batch-line" v-model.number="form.line" required>
             <option value="">Выберите линию</option>
-            <option v-for="line in lines" :key="line.id" :value="line.name">
+            <option v-for="line in lines" :key="line.id" :value="line.id">
               {{ line.name }}
             </option>
           </select>
@@ -71,14 +74,14 @@
 
         <div class="form-group">
           <label for="batch-count">Начальное количество</label>
-          <input id="batch-count" v-model.number="form.initialCount" type="number" min="0" required />
+          <input id="batch-count" v-model.number="form.initialCount" type="number" min="1" required />
         </div>
 
         <div class="form-group">
           <label for="batch-status">Статус</label>
           <select id="batch-status" v-model="form.status" required>
-            <option value="active">Активна</option>
-            <option value="completed">Завершена</option>
+            <option value="growing">Выращивается</option>
+            <option value="ready">Готова</option>
             <option value="lost">Утрачена</option>
             <option value="archived">Архивная</option>
           </select>
@@ -98,44 +101,8 @@ import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiGet, apiPost } from '../api'
 
-const demoBatches = [
-  {
-    id: 1,
-    number: 'Партия 1',
-    line: 'Линия 1',
-    dateAdded: '01.06.2026',
-    initialCount: 1000,
-    status: 'active',
-    statusLabel: 'Активна'
-  },
-  {
-    id: 2,
-    number: 'Партия 2',
-    line: 'Линия 2',
-    dateAdded: '10.06.2026',
-    initialCount: 2000,
-    status: 'active',
-    statusLabel: 'Активна'
-  },
-  {
-    id: 3,
-    number: 'Партия 3',
-    line: 'Линия 1',
-    dateAdded: '18.05.2026',
-    initialCount: 1500,
-    status: 'completed',
-    statusLabel: 'Завершена'
-  }
-]
-
-const demoLines = [
-  { id: 1, name: 'Линия 1' },
-  { id: 2, name: 'Линия 2' },
-  { id: 3, name: 'Линия 3' }
-]
-
-const batches = ref(demoBatches)
-const lines = ref(demoLines)
+const batches = ref([])
+const lines = ref([])
 const isLoading = ref(false)
 const error = ref('')
 
@@ -146,7 +113,7 @@ const form = reactive({
   line: '',
   dateAdded: '',
   initialCount: '',
-  status: 'active'
+  status: 'growing'
 })
 
 const openAddModal = () => {
@@ -154,7 +121,7 @@ const openAddModal = () => {
   form.line = ''
   form.dateAdded = ''
   form.initialCount = ''
-  form.status = 'active'
+  form.status = 'growing'
   isModalOpen.value = true
 }
 
@@ -180,6 +147,8 @@ const formatBackendDate = (date) => {
 }
 
 const statusLabels = {
+  growing: 'Выращивается',
+  ready: 'Готова',
   active: 'Активна',
   completed: 'Завершена',
   lost: 'Утрачена',
@@ -209,19 +178,19 @@ const loadData = async () => {
       apiGet('/batches')
     ])
 
-    lines.value = loadedLines.length ? loadedLines : demoLines
+    lines.value = loadedLines
     batches.value = loadedBatches.map(mapBatch)
   } catch (requestError) {
     error.value = requestError.message || 'Не удалось загрузить партии'
-    lines.value = demoLines
-    batches.value = demoBatches
+    lines.value = []
+    batches.value = []
   } finally {
     isLoading.value = false
   }
 }
 
 const saveBatch = async () => {
-  const selectedLine = lines.value.find((line) => line.name === form.line)
+  const selectedLine = lines.value.find((line) => line.id === Number(form.line))
 
   if (!selectedLine) {
     error.value = 'Выберите линию'
@@ -461,6 +430,11 @@ td {
 .status.archived {
   background: #eef3f7;
   color: #52677a;
+}
+
+.empty-cell {
+  color: #6b7c8f;
+  text-align: center;
 }
 
 @media (max-width: 650px) {

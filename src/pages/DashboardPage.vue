@@ -19,6 +19,8 @@
         <h2>Последние предупреждения и рекомендации</h2>
       </div>
 
+      <p v-if="isLoading" class="state-text">Загрузка...</p>
+
       <table>
         <thead>
           <tr>
@@ -47,42 +49,70 @@
 </template>
 
 <script setup>
-const stats = [
-  { title: 'Количество ферм', value: '3' },
-  { title: 'Количество участков', value: '8' },
-  { title: 'Количество линий', value: '24' },
-  { title: 'Количество партий', value: '16' },
-  { title: 'Средняя смертность', value: '4.8%' },
-  { title: 'Последние предупреждения', value: '2' },
-  { title: 'Последние рекомендации', value: '5' }
-]
+import { computed, onMounted, ref } from 'vue'
+import { apiGet } from '../api'
 
-const warnings = [
-  {
-    id: 1,
-    date: '15.06.2026',
-    farm: 'Ферма 1',
-    priority: 'Высокий',
-    type: 'high',
-    text: 'Демо-предупреждение 1'
-  },
-  {
-    id: 2,
-    date: '14.06.2026',
-    farm: 'Ферма 2',
-    priority: 'Средний',
-    type: 'medium',
-    text: 'Демо-рекомендация 1'
-  },
-  {
-    id: 3,
-    date: '13.06.2026',
-    farm: 'Ферма 1',
-    priority: 'Низкий',
-    type: 'low',
-    text: 'Демо-запись 1'
+const farms = ref([])
+const locations = ref([])
+const lines = ref([])
+const batches = ref([])
+const observations = ref([])
+const isLoading = ref(false)
+
+const warnings = ref([])
+
+const averageMortality = computed(() => {
+  const values = observations.value
+    .map((item) => Number(item.mortality_percent))
+    .filter((value) => !Number.isNaN(value))
+
+  if (!values.length) {
+    return '0%'
   }
-]
+
+  const sum = values.reduce((total, value) => total + value, 0)
+  return `${(sum / values.length).toFixed(1)}%`
+})
+
+const stats = computed(() => [
+  { title: 'Количество ферм', value: farms.value.length },
+  { title: 'Количество участков', value: locations.value.length },
+  { title: 'Количество линий', value: lines.value.length },
+  { title: 'Количество партий', value: batches.value.length },
+  { title: 'Средняя смертность', value: averageMortality.value },
+  { title: 'Последние предупреждения', value: warnings.value.length },
+  { title: 'Последние рекомендации', value: 0 }
+])
+
+const loadDashboard = async () => {
+  try {
+    isLoading.value = true
+    const [loadedFarms, loadedLocations, loadedLines, loadedBatches, loadedObservations] =
+      await Promise.all([
+        apiGet('/farms'),
+        apiGet('/locations'),
+        apiGet('/lines'),
+        apiGet('/batches'),
+        apiGet('/observations')
+      ])
+
+    farms.value = loadedFarms
+    locations.value = loadedLocations
+    lines.value = loadedLines
+    batches.value = loadedBatches
+    observations.value = loadedObservations
+  } catch {
+    farms.value = []
+    locations.value = []
+    lines.value = []
+    batches.value = []
+    observations.value = []
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(loadDashboard)
 </script>
 
 <style scoped>
@@ -149,6 +179,12 @@ const warnings = [
 .card-header h2 {
   margin: 0 0 20px;
   font-size: 22px;
+}
+
+.state-text {
+  margin: 0 0 16px;
+  color: #6b7c8f;
+  font-size: 14px;
 }
 
 table {

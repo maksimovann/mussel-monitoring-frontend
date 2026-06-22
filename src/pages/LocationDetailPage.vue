@@ -4,25 +4,31 @@
       <div>
         <button class="back-button" @click="goBack">← Назад</button>
         <h1>{{ location.name }}</h1>
-        <p>Участок фермы {{ location.farm }}</p>
+        <p>Участок фермы {{ farmName }}</p>
       </div>
     </header>
 
     <section class="content-card">
+      <p v-if="error" class="error-text">{{ error }}</p>
+
       <div class="info-container">
         <div class="info-item">
           <label>Координаты</label>
-          <p>{{ location.coordinates }}</p>
+          <p>{{ location.latitude }}, {{ location.longitude }}</p>
         </div>
         <div class="info-item">
           <label>Глубина</label>
-          <p>{{ location.depth }}</p>
+          <p>{{ location.depth }} м</p>
         </div>
       </div>
     </section>
 
     <section class="content-card">
-      <h2>Список линий</h2>
+      <div class="card-header">
+        <h2>Список линий</h2>
+        <button class="primary-button" @click="openLineModal">Добавить линию</button>
+      </div>
+
       <table>
         <thead>
           <tr>
@@ -34,80 +40,168 @@
         <tbody>
           <tr v-for="line in lines" :key="line.id">
             <td>
-              <RouterLink :to="`/lines/${line.id}`" class="page-link">
+              <RouterLink :to="`/lines/${line.id}?locationId=${location.id}`" class="page-link">
                 {{ line.name }}
               </RouterLink>
             </td>
-            <td>{{ line.length }}</td>
-            <td>{{ line.status }}</td>
+            <td>{{ line.length }} м</td>
+            <td>{{ statusLabel(line.status) }}</td>
+          </tr>
+          <tr v-if="!lines.length">
+            <td colspan="3" class="empty-cell">Линии пока не добавлены</td>
           </tr>
         </tbody>
       </table>
     </section>
+
+    <div v-if="isLineModalOpen" class="modal-backdrop" @click.self="closeLineModal">
+      <form class="entity-modal" @submit.prevent="saveLine">
+        <div class="modal-header">
+          <h2>Добавить линию</h2>
+          <button class="close-button" type="button" @click="closeLineModal">×</button>
+        </div>
+
+        <div class="form-group">
+          <label for="line-name">Название линии</label>
+          <input id="line-name" v-model="lineForm.name" type="text" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="line-depth">Глубина</label>
+            <input id="line-depth" v-model.number="lineForm.depth" type="number" min="0" step="0.01" required />
+          </div>
+
+          <div class="form-group">
+            <label for="line-length">Длина</label>
+            <input id="line-length" v-model.number="lineForm.length" type="number" min="0" step="0.01" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="line-status">Статус</label>
+          <select id="line-status" v-model="lineForm.status" required>
+            <option value="active">Активна</option>
+            <option value="inactive">Неактивна</option>
+            <option value="maintenance">На обслуживании</option>
+          </select>
+        </div>
+
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" @click="closeLineModal">Отмена</button>
+          <button class="primary-button" type="submit">Сохранить</button>
+        </div>
+      </form>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { apiGet, apiPost } from '../api'
 
 const router = useRouter()
 const route = useRoute()
 
-const locations = {
-  1: {
-    id: 1,
-    name: 'Участок 1',
-    farm: 'Ферма 1',
-    coordinates: '1.1, 1.1',
-    depth: '10 м'
-  },
-  2: {
-    id: 2,
-    name: 'Участок 2',
-    farm: 'Ферма 1',
-    coordinates: '2.2, 2.2',
-    depth: '12 м'
-  },
-  3: {
-    id: 3,
-    name: 'Участок 3',
-    farm: 'Ферма 2',
-    coordinates: '3.3, 3.3',
-    depth: '14 м'
-  },
-  4: {
-    id: 4,
-    name: 'Участок 4',
-    farm: 'Ферма 3',
-    coordinates: '4.4, 4.4',
-    depth: '10 м'
-  },
-  5: {
-    id: 5,
-    name: 'Участок 5',
-    farm: 'Ферма 3',
-    coordinates: '5.5, 5.5',
-    depth: '11 м'
+const location = ref({
+  id: Number(route.params.id || 1),
+  name: '',
+  farm_id: '',
+  latitude: '',
+  longitude: '',
+  depth: ''
+})
+
+const farmName = ref('')
+const lines = ref([])
+const error = ref('')
+const isLineModalOpen = ref(false)
+
+const lineForm = reactive({
+  name: '',
+  depth: '',
+  length: '',
+  status: 'active'
+})
+
+const resetLineForm = () => {
+  lineForm.name = ''
+  lineForm.depth = ''
+  lineForm.length = ''
+  lineForm.status = 'active'
+}
+
+const openLineModal = () => {
+  resetLineForm()
+  isLineModalOpen.value = true
+}
+
+const closeLineModal = () => {
+  isLineModalOpen.value = false
+}
+
+const statusLabels = {
+  active: 'Активна',
+  inactive: 'Неактивна',
+  maintenance: 'На обслуживании',
+  completed: 'Завершена',
+  lost: 'Утрачена',
+  archived: 'Архивная'
+}
+
+const statusLabel = (status) => statusLabels[status] || status || 'не указан'
+
+const loadLocation = async () => {
+  try {
+    error.value = ''
+    const data = await apiGet(`/locations/${route.params.id}`)
+    location.value = data
+    lines.value = data.lines || []
+
+    try {
+      const farm = await apiGet(`/farms/${data.farm_id}`)
+      farmName.value = farm.name
+    } catch {
+      farmName.value = `Ферма ${data.farm_id}`
+    }
+  } catch (requestError) {
+    error.value = requestError.message || 'Не удалось загрузить участок'
+    location.value = {
+      id: Number(route.params.id || 1),
+      name: '',
+      farm_id: '',
+      latitude: '',
+      longitude: '',
+      depth: ''
+    }
+    farmName.value = ''
+    lines.value = []
   }
 }
 
-const location = computed(() => locations[route.params.id] || locations[1])
+const saveLine = async () => {
+  try {
+    const createdLine = await apiPost('/lines', {
+      location_id: Number(route.params.id),
+      name: lineForm.name,
+      depth: Number(lineForm.depth),
+      length: Number(lineForm.length),
+      status: lineForm.status
+    })
 
-const lines = [
-  { id: 1, name: 'Линия 1', length: '100 м', status: 'активна' },
-  { id: 2, name: 'Линия 2', length: '120 м', status: 'активна' }
-]
+    lines.value.push(createdLine)
+    closeLineModal()
+  } catch (requestError) {
+    error.value = requestError.message || 'Не удалось добавить линию'
+  }
+}
 
 const goBack = () => {
-  if (window.history.state?.back) {
-    router.back()
-    return
-  }
-
-  router.push('/farms')
+  router.push(`/farms/${location.value.farm_id}?tab=locations`)
 }
+
+onMounted(loadLocation)
 </script>
 
 <style scoped>
@@ -153,8 +247,16 @@ const goBack = () => {
   font-size: 16px;
 }
 
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
 .content-card h2 {
-  margin: 0 0 20px;
+  margin: 0;
   font-size: 22px;
 }
 
@@ -206,13 +308,139 @@ td {
   text-decoration: none;
 }
 
+.primary-button,
+.secondary-button,
+.close-button {
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button {
+  border-radius: 14px;
+  background: #2d9cdb;
+  color: #ffffff;
+  padding: 13px 18px;
+}
+
+.secondary-button {
+  background: #eef3f7;
+  color: #52677a;
+  padding: 12px 16px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(23, 50, 77, 0.34);
+}
+
+.entity-modal {
+  width: min(520px, 100%);
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 24px 70px rgba(20, 44, 66, 0.22);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.close-button {
+  width: 34px;
+  height: 34px;
+  background: #eef3f7;
+  color: #52677a;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.form-group label {
+  color: #34495e;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.form-group input,
+.form-group select {
+  height: 44px;
+  border: 1px solid #d7e2ea;
+  border-radius: 10px;
+  padding: 0 12px;
+  color: #17324d;
+  outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #2d9cdb;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.error-text {
+  margin: 0 0 16px;
+  color: #d93025;
+  font-size: 14px;
+}
+
+.empty-cell {
+  color: #6b7c8f;
+  text-align: center;
+}
+
 @media (max-width: 650px) {
   .location-detail-page {
     padding: 18px;
   }
 
-  .info-container {
+  .info-container,
+  .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .primary-button {
+    width: 100%;
   }
 }
 </style>

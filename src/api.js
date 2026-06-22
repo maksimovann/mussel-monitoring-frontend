@@ -1,5 +1,15 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
+const AUTH_EXPIRED_MESSAGE = 'Сессия истекла. Войдите в систему заново'
+
+const translatedMessages = {
+  Unauthorized: AUTH_EXPIRED_MESSAGE,
+  'Internal Server Error': 'Ошибка сервера. Попробуйте позже',
+  'Bad Request': 'Проверьте введенные данные',
+  Forbidden: 'Недостаточно прав для выполнения действия',
+  'Not Found': 'Запись не найдена'
+}
+
 export const tokenStorage = {
   getAccessToken() {
     return localStorage.getItem('access_token')
@@ -12,6 +22,11 @@ export const tokenStorage = {
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
   }
+}
+
+const normalizeMessage = (message) => {
+  const text = Array.isArray(message) ? message.join(', ') : message
+  return translatedMessages[text] || text || 'Ошибка запроса'
 }
 
 export const apiRequest = async (path, options = {}) => {
@@ -40,7 +55,17 @@ export const apiRequest = async (path, options = {}) => {
       message = response.statusText || message
     }
 
-    throw new Error(Array.isArray(message) ? message.join(', ') : message)
+    if (response.status === 401) {
+      tokenStorage.clear()
+
+      if (path !== '/auth/login' && window.location.pathname !== '/login') {
+        window.location.assign('/login')
+      }
+
+      throw new Error(AUTH_EXPIRED_MESSAGE)
+    }
+
+    throw new Error(normalizeMessage(message))
   }
 
   if (response.status === 204) {

@@ -1,12 +1,6 @@
-# Frontend-часть системы мониторинга выращивания мидий.
+# Frontend системы мониторинга выращивания мидий
 
-## Просмотр
-
-Проект можно открыть через GitHub Pages:
-
-```text
-https://maksimovann.github.io/mussel-monitoring-frontend/
-```
+Frontend-часть проекта для производственной практики. Приложение реализовано на Vue 3 и работает с backend API.
 
 ## Стек
 
@@ -15,75 +9,59 @@ https://maksimovann.github.io/mussel-monitoring-frontend/
 - Vite
 - JavaScript
 
-## Требования
+## Backend
 
-Для локального запуска нужен Node.js и npm.
+Backend находится в отдельном репозитории:
 
-Проверить установку можно командами:
-
-```bash
-node -v
-npm -v
+```text
+https://github.com/Asukaru556/MuselFarm-Backend
 ```
 
-## Установка и запуск локально
-
-1. Склонировать репозиторий:
+Для локальной работы backend запускается через Docker:
 
 ```bash
-git clone https://github.com/maksimovann/mussel-monitoring-frontend.git
+docker-compose up --build
 ```
 
-2. Перейти в папку проекта:
+API доступно по адресу:
 
-```bash
-cd mussel-monitoring-frontend
+```text
+http://localhost:3000/api
 ```
 
-3. Установить зависимости:
+## Тестовый вход
+
+```text
+login: admin_chief
+password: password123
+```
+
+## Запуск frontend
+
+Установить зависимости:
 
 ```bash
 npm install
 ```
 
-4. Если backend запущен отдельно на `http://localhost:3000`, дополнительных настроек для локального запуска не требуется: Vite проксирует `/api` на backend.
-
-При необходимости можно создать `.env.local` и указать другой адрес API:
-
-```bash
-VITE_API_URL=http://localhost:3000/api
-```
-
-5. Запустить проект:
+Запустить проект:
 
 ```bash
 npm run dev
 ```
 
-6. Открыть в браузере адрес, который появится в терминале. Обычно:
+Открыть приложение:
 
 ```text
 http://localhost:5173/
 ```
 
+При локальном запуске frontend отправляет запросы на `/api`, а Vite проксирует их на `http://localhost:3000`.
+
 ## Проверка сборки
 
 ```bash
 npm run build
-```
-
-## Просмотр production-сборки локально
-
-Сначала выполнить:
-
-```bash
-npm run build
-```
-
-Затем:
-
-```bash
-npm run preview
 ```
 
 ## Основные страницы
@@ -96,20 +74,29 @@ npm run preview
 - `/lines/:id` - карточка линии
 - `/batches` - список партий мидий
 - `/batches/:id` - карточка партии
-- `/observations` - форма наблюдений биолога
+- `/observations` - наблюдения биолога
 
-## Примечание
-
-В проекте реализована frontend-часть. Frontend подготовлен к работе с backend API:
+## Основные API endpoints
 
 - `POST /api/auth/login`
 - `GET /api/farms`
 - `POST /api/farms`
 - `PUT /api/farms/:id`
 - `DELETE /api/farms/:id`
+- `GET /api/locations`
+- `POST /api/locations`
 - `GET /api/lines`
+- `GET /api/lines/:id`
+- `POST /api/lines`
 - `GET /api/batches`
 - `POST /api/batches`
+- `GET /api/sensors`
+- `POST /api/sensors`
+- `GET /api/events`
+- `POST /api/events`
+- `GET /api/observations`
 - `POST /api/observations`
 
-Если backend не запущен или пользователь не авторизован, часть страниц может показывать временные демонстрационные данные.
+## Примечание
+
+GitHub Pages сейчас не используется. Проект рассчитан на локальный запуск frontend и backend.

@@ -56,6 +56,7 @@ body {
   margin: 0;
   font-family: 'Open Sans', Arial, sans-serif;
   background: #f4f8fb;
+  overflow-wrap: break-word;
 }
 
 button,
@@ -63,6 +64,18 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+p,
+h1,
+h2,
+h3,
+td,
+th,
+a,
+button,
+span {
+  overflow-wrap: anywhere;
 }
 
 .app-shell {
@@ -146,6 +159,55 @@ textarea {
 
 .app-content {
   min-width: 0;
+}
+
+.app-shell .app-content .page-header h1 {
+  font-size: 34px;
+}
+
+.app-shell .app-content .page-header p {
+  font-size: 17px;
+}
+
+.app-shell .app-content .content-card h2,
+.app-shell .app-content .card-header h2,
+.app-shell .app-content .modal-header h2 {
+  font-size: 23px;
+}
+
+.app-shell .app-content th,
+.app-shell .app-content .form-group label {
+  font-size: 15px;
+}
+
+.app-shell .app-content td,
+.app-shell .app-content .info-item p,
+.app-shell .app-content .item-name,
+.app-shell .app-content .tab {
+  font-size: 16px;
+}
+
+.app-shell .app-content .form-group input,
+.app-shell .app-content .form-group select,
+.app-shell .app-content .form-group textarea {
+  font-size: 15px;
+}
+
+.app-shell .app-content .primary-button,
+.app-shell .app-content .secondary-button,
+.app-shell .app-content .secondary-submit,
+.app-shell .app-content .action-button,
+.app-shell .app-content .text-button,
+.app-shell .app-content .submit-button {
+  font-size: 15px;
+}
+
+.app-shell .app-content .state-text,
+.app-shell .app-content .error-text,
+.app-shell .app-content .success-text,
+.app-shell .app-content .empty-cell,
+.app-shell .app-content .empty-state {
+  font-size: 15px;
 }
 
 @media (max-width: 760px) {

@@ -86,13 +86,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiDelete, apiGet, apiPost, apiPut } from '../api'
 
-const demoFarms = [
-  { id: 1, name: 'Ферма 1', region: 'Регион 1', description: 'Описание фермы 1', locationsCount: 2 },
-  { id: 2, name: 'Ферма 2', region: 'Регион 2', description: 'Описание фермы 2', locationsCount: 1 },
-  { id: 3, name: 'Ферма 3', region: 'Регион 1', description: 'Описание фермы 3', locationsCount: 2 }
-]
-
-const farms = ref(demoFarms)
+const farms = ref([])
 const isLoading = ref(false)
 const error = ref('')
 
@@ -143,7 +137,7 @@ const loadFarms = async () => {
     farms.value = data.map(mapFarm)
   } catch (requestError) {
     error.value = requestError.message || 'Не удалось загрузить фермы'
-    farms.value = demoFarms
+    farms.value = []
   } finally {
     isLoading.value = false
   }

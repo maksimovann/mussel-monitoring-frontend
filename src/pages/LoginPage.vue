@@ -3,7 +3,7 @@
     <div class="login-card">
       <div class="login-header">
         <h1>Вход в систему</h1>
-        <p>Система мониторинга роста мидий</p>
+        <p>Система мониторинга выращивания мидий</p>
       </div>
 
       <form class="login-form" @submit.prevent="handleLogin">
@@ -48,6 +48,7 @@ const handleLogin = async () => {
 
   try {
     isLoading.value = true
+    tokenStorage.clear()
     const data = await apiPost('/auth/login', {
       login: login.value,
       password: password.value

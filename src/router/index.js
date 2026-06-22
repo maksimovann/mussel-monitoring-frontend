@@ -49,6 +49,10 @@ const routes = [
   {
     path: '/observations',
     component: ObservationsPage
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/login'
   }
 ]
 

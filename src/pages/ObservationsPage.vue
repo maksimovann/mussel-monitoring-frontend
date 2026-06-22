@@ -3,25 +3,27 @@
     <header class="page-header">
       <div>
         <h1>Наблюдения биолога</h1>
-        <p>Форма для записи наблюдений за мидиями</p>
+        <p>Форма для записи и просмотра наблюдений за мидиями</p>
       </div>
     </header>
 
     <section class="content-card">
       <form @submit.prevent="saveObservation" class="observation-form">
-        <div class="form-group">
-          <label for="object">Объект</label>
-          <select id="object" v-model="form.object" required>
-            <option value="">Выберите объект</option>
-            <option v-for="object in objects" :key="object.value" :value="object.value">
-              {{ object.label }}
-            </option>
-          </select>
-        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="object">Объект</label>
+            <select id="object" v-model="form.object" required>
+              <option value="">Выберите объект</option>
+              <option v-for="object in objects" :key="object.value" :value="object.value">
+                {{ object.label }}
+              </option>
+            </select>
+          </div>
 
-        <div class="form-group">
-          <label for="date">Дата</label>
-          <input id="date" v-model="form.date" type="date" required />
+          <div class="form-group">
+            <label for="observation-date">Дата</label>
+            <input id="observation-date" v-model="form.date" type="date" required />
+          </div>
         </div>
 
         <div class="form-row">
@@ -34,11 +36,11 @@
             <label for="condition">Состояние мидий</label>
             <select id="condition" v-model="form.condition" required>
               <option value="">Выберите состояние</option>
-              <option value="excellent">Отлично</option>
-              <option value="good">Хорошо</option>
-              <option value="satisfactory">Удовлетворительно</option>
-              <option value="poor">Плохо</option>
-              <option value="critical">Критично</option>
+              <option value="отлично">Отлично</option>
+              <option value="хорошо">Хорошо</option>
+              <option value="удовлетворительно">Удовлетворительно</option>
+              <option value="плохо">Плохо</option>
+              <option value="критично">Критично</option>
             </select>
           </div>
         </div>
@@ -51,19 +53,19 @@
 
           <div class="form-group">
             <label for="density">Плотность (шт/м)</label>
-            <input id="density" v-model.number="form.density" type="number" required />
+            <input id="density" v-model.number="form.density" type="number" min="0" required />
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label for="size">Размер (мм)</label>
-            <input id="size" v-model.number="form.size" type="number" required />
+            <input id="size" v-model.number="form.size" type="number" min="0" step="0.01" required />
           </div>
 
           <div class="form-group">
             <label for="weight">Вес (г)</label>
-            <input id="weight" v-model.number="form.weight" type="number" required />
+            <input id="weight" v-model.number="form.weight" type="number" min="0" step="0.01" required />
           </div>
         </div>
 
@@ -100,6 +102,46 @@
         <button type="submit" class="submit-button">Сохранить</button>
       </form>
     </section>
+
+    <section class="content-card">
+      <div class="card-header">
+        <h2>История наблюдений</h2>
+      </div>
+
+      <p v-if="isLoading" class="state-text">Загрузка...</p>
+
+      <table class="observations-table">
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th>Объект</th>
+            <th>Состояние</th>
+            <th>Обрастание</th>
+            <th>Смертность</th>
+            <th>Размер</th>
+            <th>Вес</th>
+            <th>Паразиты</th>
+            <th>Комментарий</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="observation in observationRows" :key="observation.id">
+            <td>{{ observation.date }}</td>
+            <td class="text-cell">{{ observation.object }}</td>
+            <td class="text-cell">{{ observation.condition }}</td>
+            <td>{{ observation.fouling }}%</td>
+            <td>{{ observation.mortality }}%</td>
+            <td>{{ observation.size }} мм</td>
+            <td>{{ observation.weight }} г</td>
+            <td class="text-cell">{{ observation.pathogen }}</td>
+            <td class="long-text-cell">{{ observation.comment || '-' }}</td>
+          </tr>
+          <tr v-if="!isLoading && !observationRows.length">
+            <td colspan="9" class="empty-cell">Наблюдения пока не добавлены</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </div>
 </template>
 
@@ -107,9 +149,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { apiGet, apiPost } from '../api'
 
-const form = ref({
+const emptyForm = () => ({
   object: '',
-  date: '',
+  date: new Date().toISOString().slice(0, 10),
   biofouling: '',
   condition: '',
   mortality: '',
@@ -121,20 +163,27 @@ const form = ref({
   comment: ''
 })
 
-const demoLines = [
-  { id: 1, name: 'Линия 1' },
-  { id: 2, name: 'Линия 2' }
-]
-
-const demoBatches = [
-  { id: 1, line_id: 1, batch_number: 'Партия 1' },
-  { id: 2, line_id: 2, batch_number: 'Партия 2' }
-]
-
-const lines = ref(demoLines)
-const batches = ref(demoBatches)
+const form = ref(emptyForm())
+const lines = ref([])
+const batches = ref([])
+const observations = ref([])
 const error = ref('')
 const successMessage = ref('')
+const isLoading = ref(false)
+
+const conditionLabels = {
+  excellent: 'Отлично',
+  good: 'Хорошо',
+  satisfactory: 'Удовлетворительно',
+  poor: 'Плохо',
+  critical: 'Критично',
+  'отлично': 'Отлично',
+  'хорошо': 'Хорошо',
+  'удовлетворительно': 'Удовлетворительно',
+  'плохо': 'Плохо',
+  'критично': 'Критично',
+  'Идеальное': 'Идеальное'
+}
 
 const objects = computed(() =>
   batches.value.map((batch) => {
@@ -147,18 +196,58 @@ const objects = computed(() =>
   })
 )
 
-const loadObjects = async () => {
+const formatDate = (date) => {
+  if (!date) {
+    return ''
+  }
+
+  return new Date(date).toLocaleDateString('ru-RU')
+}
+
+const getObjectLabel = (observation) => {
+  const batch = batches.value.find((item) => item.id === observation.batch_id)
+  const line = lines.value.find((item) => item.id === observation.line_id)
+
+  const lineName = line?.name || `Линия ${observation.line_id}`
+  const batchName = batch?.batch_number || `Партия ${observation.batch_id}`
+
+  return `${lineName} / ${batchName}`
+}
+
+const observationRows = computed(() =>
+  observations.value.map((observation) => ({
+    id: observation.id,
+    date: formatDate(observation.observed_at),
+    object: getObjectLabel(observation),
+    condition: conditionLabels[observation.mussel_condition] || observation.mussel_condition,
+    fouling: observation.fouling_percent,
+    mortality: observation.mortality_percent,
+    size: observation.avg_size,
+    weight: observation.avg_weight,
+    pathogen: observation.pathogen_present ? observation.pathogen_type || 'Да' : 'Нет',
+    comment: observation.comment
+  }))
+)
+
+const loadData = async () => {
   try {
-    const [loadedLines, loadedBatches] = await Promise.all([
+    isLoading.value = true
+    const [loadedLines, loadedBatches, loadedObservations] = await Promise.all([
       apiGet('/lines'),
-      apiGet('/batches')
+      apiGet('/batches'),
+      apiGet('/observations')
     ])
 
-    lines.value = loadedLines.length ? loadedLines : demoLines
-    batches.value = loadedBatches.length ? loadedBatches : demoBatches
-  } catch {
-    lines.value = demoLines
-    batches.value = demoBatches
+    lines.value = loadedLines
+    batches.value = loadedBatches
+    observations.value = loadedObservations
+  } catch (requestError) {
+    error.value = requestError.message || 'Не удалось загрузить наблюдения'
+    lines.value = []
+    batches.value = []
+    observations.value = []
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -180,16 +269,19 @@ const saveObservation = async () => {
       avg_weight: Number(form.value.weight),
       pathogen_present: form.value.parasites === 'yes',
       pathogen_type: form.value.parasiteType || undefined,
-      comment: form.value.comment || undefined
+      comment: form.value.comment || undefined,
+      observed_at: form.value.date ? new Date(form.value.date).toISOString() : undefined
     })
 
     successMessage.value = 'Наблюдение сохранено'
+    form.value = emptyForm()
+    await loadData()
   } catch (requestError) {
     error.value = requestError.message || 'Не удалось сохранить наблюдение'
   }
 }
 
-onMounted(loadObjects)
+onMounted(loadData)
 </script>
 
 <style scoped>
@@ -287,10 +379,21 @@ onMounted(loadObjects)
   background: #238ac3;
 }
 
+.card-header h2 {
+  margin: 0 0 20px;
+  font-size: 22px;
+}
+
+.state-text,
 .error-text,
 .success-text {
   margin: 0;
   font-size: 14px;
+}
+
+.state-text {
+  margin-bottom: 16px;
+  color: #6b7c8f;
 }
 
 .error-text {
@@ -299,6 +402,72 @@ onMounted(loadObjects)
 
 .success-text {
   color: #137333;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+th {
+  text-align: left;
+  color: #6b7c8f;
+  font-size: 14px;
+  padding: 14px;
+  border-bottom: 1px solid #e1eaf0;
+  white-space: nowrap;
+}
+
+td {
+  padding: 14px;
+  border-bottom: 1px solid #edf2f6;
+  font-size: 15px;
+  vertical-align: top;
+}
+
+.observations-table th:nth-child(1),
+.observations-table td:nth-child(1) {
+  width: 92px;
+}
+
+.observations-table th:nth-child(4),
+.observations-table td:nth-child(4),
+.observations-table th:nth-child(5),
+.observations-table td:nth-child(5),
+.observations-table th:nth-child(6),
+.observations-table td:nth-child(6),
+.observations-table th:nth-child(7),
+.observations-table td:nth-child(7) {
+  width: 92px;
+}
+
+.observations-table th:nth-child(9),
+.observations-table td:nth-child(9) {
+  width: 24%;
+}
+
+.text-cell,
+.long-text-cell {
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
+}
+
+.long-text-cell {
+  max-width: 280px;
+}
+
+.empty-cell {
+  color: #6b7c8f;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .content-card {
+    overflow-x: auto;
+  }
 }
 
 @media (max-width: 650px) {
